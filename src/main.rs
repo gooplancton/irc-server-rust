@@ -3,9 +3,10 @@ use std::{
     net::TcpListener,
 };
 
+use connection::state::ConnectionState;
 use irc_parser::FromIRCString;
 
-use commands::{handle_capabilities, handle_join, handle_nick, handle_user, Command};
+use commands::{Command, RunCommand};
 
 mod commands;
 mod connection;
@@ -23,33 +24,21 @@ fn main() {
         let mut writer = BufWriter::new(stream.try_clone().unwrap());
         let mut reader = BufReader::new(stream);
 
+        let mut connection_state = ConnectionState::new();
+
         loop {
             let mut command_line = String::new();
             if reader.read_line(&mut command_line).is_err() || command_line.is_empty() {
                 break;
             }
 
-            dbg!(command_line.as_str());
-
-            let command = Command::from_irc_string(&command_line);
-
-            if let Err(err) = command {
-                println!("{}", err);
-                continue;
+            match Command::from_irc_string(&command_line) {
+                Err(err) => println!("could not parse command {} due to {}", command_line, err),
+                Ok(command) => {
+                    let _ = command.run(&mut connection_state, &mut writer);
+                    let _ = writer.flush();
+                }
             }
-
-            let messages = match command.unwrap() {
-                Command::Join(args) => handle_join(args),
-                Command::User(args) => handle_user(args),
-                Command::Nick(args) => handle_nick(args),
-                Command::Capabilities(args) => handle_capabilities(args)
-            };
-
-            messages.unwrap().into_iter().for_each(|message| {
-                writer.write_all(message.as_bytes()).unwrap();
-            });
-
-            let _ = writer.flush();
         }
     }
 }

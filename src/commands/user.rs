@@ -2,6 +2,8 @@
 
 use irc_parser::FromIRCString;
 
+use super::RunCommand;
+
 #[derive(Debug, FromIRCString)]
 pub struct UserArgs {
     user: String,
@@ -10,9 +12,15 @@ pub struct UserArgs {
     real_name: String
 }
 
-pub fn handle_user(args: UserArgs) -> anyhow::Result<Vec<&'static str>> {
-    dbg!(args);
+impl RunCommand for UserArgs {
+    fn run(
+        self,
+        _state: &mut crate::connection::state::ConnectionState,
+        _writer: &mut std::io::BufWriter<std::net::TcpStream>,
+    ) -> anyhow::Result<()> {
+        dbg!(self);
 
-    Ok(vec![])
+        Ok(())
+    }
 }
 

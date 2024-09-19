@@ -11,9 +11,18 @@ bitfield! {
     pub notice_recipient, set_notice_recipient: 1;
 }
 
-
 pub struct ConnectionState {
-    capabilities_negotiation_ended: bool,
-    nickname: Option<String>,
-    modes: UserModes,
+    pub capabilities_negotiation_ended: bool,
+    pub nickname: Option<String>,
+    pub modes: UserModes,
+}
+
+impl ConnectionState {
+    pub fn new() -> Self {
+        Self {
+            capabilities_negotiation_ended: false,
+            nickname: None,
+            modes: UserModes(0),
+        }
+    }
 }
