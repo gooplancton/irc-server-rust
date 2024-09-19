@@ -1,0 +1,9 @@
+[package]
+name = "irc_parser"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+util_macros = { path = "util_macros" }
+anyhow = "1.0.89"
+thiserror = "1.0.63"
