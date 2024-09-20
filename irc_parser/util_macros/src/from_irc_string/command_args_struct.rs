@@ -2,6 +2,8 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::DataStruct;
 
+use super::utils::type_from_inside_option;
+
 pub fn impl_from_irc_string_for_command_args_struct(
     ident: &syn::Ident,
     struct_data: DataStruct,
@@ -11,9 +13,19 @@ pub fn impl_from_irc_string_for_command_args_struct(
         let field_ident = field.ident.as_ref();
         let field_type = &field.ty;
 
-        quote! {
-            let arg_string = args.next().ok_or(anyhow::anyhow!("Not enough arguments"))?;
-            let #field_ident = arg_string.parse::<#field_type>()?;
+        if let Some(option_inner_type) = type_from_inside_option(field) {
+            quote! {
+                let #field_ident = if let Some(arg_string) = args.next() {
+                    Some(arg_string.parse::<#option_inner_type>()?)
+                } else {
+                    None
+                };
+            }
+        } else {
+            quote! {
+                let arg_string = args.next().ok_or(anyhow::anyhow!("Not enough arguments"))?;
+                let #field_ident = arg_string.parse::<#field_type>()?;
+            }
         }
     });
 

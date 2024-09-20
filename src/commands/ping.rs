@@ -11,22 +11,19 @@ use crate::{connection::state::ConnectionState, internals::server::Message};
 use super::RunCommand;
 
 #[derive(FromIRCString)]
-pub struct CapabilitiesArgs {
-    subcommand: String,
+pub struct PingArgs {
+    token: String,
 }
 
-impl RunCommand for CapabilitiesArgs {
+impl RunCommand for PingArgs {
     fn run(
         self,
         _state: &mut ConnectionState,
         writer: &mut BufWriter<TcpStream>,
         _messages_tx: &mut Sender<Message>,
     ) -> anyhow::Result<()> {
-        match self.subcommand.as_str() {
-            "LS" => writer.write_all("CAP * LS :\r\n".as_bytes())?,
-            "END" => {}
-            _ => todo!(),
-        };
+        let message = format!("server PONG {}\r\n", self.token);
+        writer.write_all(message.as_bytes())?;
 
         Ok(())
     }

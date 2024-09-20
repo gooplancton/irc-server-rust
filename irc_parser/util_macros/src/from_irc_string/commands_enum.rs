@@ -20,13 +20,7 @@ pub fn impl_from_irc_string_for_commands_enum(
             .into_iter()
             .filter_map(|attr| match attr.meta {
                 syn::Meta::NameValue(meta) => {
-                    if meta.path.get_ident().map(|ident| ident.to_string())
-                        == Some("command_name".to_string())
-                    {
-                        Some(meta.value)
-                    } else {
-                        None
-                    }
+                    meta.path.is_ident("command_name").then_some(meta.value)
                 }
                 _ => None,
             })
@@ -66,4 +60,3 @@ pub fn impl_from_irc_string_for_commands_enum(
 
     TokenStream::from(expanded)
 }
-

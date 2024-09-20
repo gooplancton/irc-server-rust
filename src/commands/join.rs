@@ -1,8 +1,10 @@
 #[allow(dead_code)]
-
 use std::io::Write;
+use std::{io::BufWriter, net::TcpStream, sync::mpsc::Sender};
 
 use irc_parser::{types::SpaceSeparatedList, FromIRCString};
+
+use crate::{connection::state::ConnectionState, internals::server::Message};
 
 use super::RunCommand;
 
@@ -14,12 +16,12 @@ pub struct JoinArgs {
 impl RunCommand for JoinArgs {
     fn run(
         self,
-        _state: &mut crate::connection::state::ConnectionState,
-        writer: &mut std::io::BufWriter<std::net::TcpStream>,
+        _state: &mut ConnectionState,
+        writer: &mut BufWriter<TcpStream>,
+        _messages_tx: &mut Sender<Message>,
     ) -> anyhow::Result<()> {
         writer.write_all("JOIN\r\n".as_bytes())?;
 
         Ok(())
     }
 }
-

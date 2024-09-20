@@ -46,7 +46,7 @@ pub fn run_command(input: TokenStream) -> TokenStream {
     let arms = enum_data.variants.into_iter().map(|variant| {
         let variant_ident = &variant.ident;
         quote! {
-            Self::#variant_ident(args) => args.run(state, writer),
+            Self::#variant_ident(args) => args.run(state, writer, messages_tx),
         }
     });
 
@@ -56,6 +56,7 @@ pub fn run_command(input: TokenStream) -> TokenStream {
                 self,
                 state: &mut ConnectionState,
                 writer: &mut BufWriter<TcpStream>,
+                messages_tx: &mut std::sync::mpsc::Sender<crate::internals::server::Message>
             ) -> anyhow::Result<()> {
                 match self {
                     #(#arms)*

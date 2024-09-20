@@ -11,17 +11,26 @@ bitfield! {
     pub notice_recipient, set_notice_recipient: 1;
 }
 
+pub enum RegistrationState {
+    Unregistered,
+    ReadyToBeRegistered,
+    AlreadyRegistered,
+    ReadyToBeUnregistered
+}
+
 pub struct ConnectionState {
-    pub capabilities_negotiation_ended: bool,
+    pub registration_state: RegistrationState,
     pub nickname: Option<String>,
+    pub username: Option<String>,
     pub modes: UserModes,
 }
 
 impl ConnectionState {
     pub fn new() -> Self {
         Self {
-            capabilities_negotiation_ended: false,
+            registration_state: RegistrationState::Unregistered,
             nickname: None,
+            username: None,
             modes: UserModes(0),
         }
     }

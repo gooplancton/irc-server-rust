@@ -6,20 +6,22 @@ use crate::{connection::state::ConnectionState, internals::server::Message};
 
 use super::RunCommand;
 
-#[derive(Debug, FromIRCString)]
-pub struct NickArgs {
-    nickname: String,
+#[derive(FromIRCString, Debug)]
+pub struct ModeArgs {
+    target: String,
+    modestring: Option<String>,
 }
 
-impl RunCommand for NickArgs {
+impl RunCommand for ModeArgs {
     fn run(
         self,
-        state: &mut ConnectionState,
+        _state: &mut ConnectionState,
         _writer: &mut BufWriter<TcpStream>,
-        _messages_tx: &mut Sender<Message>,
+        _messages_tx: &mut Sender<Message>
     ) -> anyhow::Result<()> {
-        state.nickname = Some(self.nickname);
+        // dbg!(&self);
 
         Ok(())
     }
 }
+
