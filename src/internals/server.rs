@@ -12,14 +12,7 @@ use crate::{
     connection::state::{ConnectionState, RegistrationState},
 };
 
-use super::{connections::Connections, dispatcher::Dispatcher};
-
-#[derive(Debug)]
-pub struct Message {
-    pub sender: String,
-    pub recipient: String,
-    pub text: String,
-}
+use super::{connections::Connections, dispatcher::Dispatcher, message::Message};
 
 pub struct IRCServer {
     connections: Connections,

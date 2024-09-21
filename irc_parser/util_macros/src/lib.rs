@@ -8,21 +8,26 @@ use syn::{parse_macro_input, spanned::Spanned, DeriveInput};
 
 mod from_irc_string;
 
-#[proc_macro_derive(FromIRCString, attributes(command_name))]
+#[proc_macro_derive(FromIRCString, attributes(command_name, command_list))]
 pub fn derive_from_irc_string(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
     let ident = &input.ident;
+    let is_commands_enum = input.attrs.iter().any(|attr| match &attr.meta {
+        syn::Meta::Path(path) => path.is_ident("command_list"),
+        _ => false
+    });
+
     match input.data {
         syn::Data::Struct(struct_data) => {
             impl_from_irc_string_for_command_args_struct(ident, struct_data)
         }
-        syn::Data::Enum(enum_data) if ident.to_string().contains("Command") => {
+        syn::Data::Enum(enum_data) if is_commands_enum => {
             impl_from_irc_string_for_commands_enum(ident, enum_data)
         }
         _ => syn::Error::new(
             input.span(),
-            "Can only apply to structs or \"Command\" enums",
+            "Can only apply to structs or enums tagged with the #command_list attribute",
         )
         .to_compile_error()
         .into(),
@@ -37,7 +42,7 @@ pub fn run_command(input: TokenStream) -> TokenStream {
     let enum_data = match input.data {
         syn::Data::Enum(enum_data) => enum_data,
         _ => {
-            return syn::Error::new(input.span(), "Can only apply to \"Command\" enum")
+            return syn::Error::new(input.span(), "Can only apply to enums")
                 .to_compile_error()
                 .into();
         }
@@ -56,7 +61,7 @@ pub fn run_command(input: TokenStream) -> TokenStream {
                 self,
                 state: &mut ConnectionState,
                 writer: &mut BufWriter<TcpStream>,
-                messages_tx: &mut std::sync::mpsc::Sender<crate::internals::server::Message>
+                messages_tx: &mut std::sync::mpsc::Sender<crate::internals::Message>
             ) -> anyhow::Result<()> {
                 match self {
                     #(#arms)*

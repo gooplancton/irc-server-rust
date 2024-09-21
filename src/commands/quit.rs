@@ -14,7 +14,7 @@ impl RunCommand for QuitArgs {
         self,
         state: &mut crate::connection::state::ConnectionState,
         _writer: &mut std::io::BufWriter<std::net::TcpStream>,
-        _messages_tx: &mut std::sync::mpsc::Sender<crate::internals::server::Message>,
+        _messages_tx: &mut std::sync::mpsc::Sender<crate::internals::Message>,
     ) -> anyhow::Result<()> {
         state.registration_state = RegistrationState::ReadyToBeUnregistered;
 

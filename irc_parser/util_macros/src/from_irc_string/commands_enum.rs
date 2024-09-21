@@ -25,7 +25,7 @@ pub fn impl_from_irc_string_for_commands_enum(
                 _ => None,
             })
             .next()
-            .expect("enum variants need to have the command_name attribute"); // TODO: return proper syn error
+            .expect("enum variants need to have the command_name attribute");
 
         quote! {
             #command_name => {

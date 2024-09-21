@@ -11,7 +11,7 @@ use privmsg::PrivMsgArgs;
 use quit::QuitArgs;
 use user::UserArgs;
 
-use crate::{connection::state::ConnectionState, internals::server::Message};
+use crate::{connection::state::ConnectionState, internals::Message};
 
 mod capabilities;
 mod join;
@@ -19,8 +19,8 @@ mod mode;
 mod nick;
 mod ping;
 mod privmsg;
-mod user;
 mod quit;
+mod user;
 
 pub trait RunCommand {
     fn run(
@@ -32,6 +32,7 @@ pub trait RunCommand {
 }
 
 #[derive(FromIRCString, RunCommand)]
+#[command_list]
 pub enum Command {
     #[command_name = "JOIN"]
     Join(JoinArgs),
@@ -55,5 +56,5 @@ pub enum Command {
     PrivMsg(PrivMsgArgs),
 
     #[command_name = "QUIT"]
-    Quit(QuitArgs)
+    Quit(QuitArgs),
 }

@@ -1,4 +1,4 @@
-use internals::server::IRCServer;
+use internals::IRCServer;
 
 mod commands;
 mod connection;

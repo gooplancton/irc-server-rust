@@ -12,7 +12,7 @@ use irc_parser::FromIRCString;
 use crate::{
     connection::state::{ConnectionState, RegistrationState},
     consts::RPL_WELCOME,
-    internals::server::Message,
+    internals::Message,
 };
 
 use super::RunCommand;
@@ -41,7 +41,7 @@ impl RunCommand for UserArgs {
 
         let message = format!(
             "{} {} :Welcome {}\r\n",
-            RPL_WELCOME, nickname, self.realname
+            RPL_WELCOME, nickname, nickname
         );
 
         writer.write_all(message.as_bytes())?;

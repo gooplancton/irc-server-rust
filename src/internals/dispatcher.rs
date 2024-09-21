@@ -1,8 +1,11 @@
-use std::{io::{BufWriter, Write}, sync::mpsc::Receiver};
+use std::{
+    io::{BufWriter, Write},
+    sync::mpsc::Receiver,
+};
 
 use anyhow::anyhow;
 
-use super::{connections::Connections, server::Message};
+use super::{connections::Connections, Message};
 
 pub struct Dispatcher {
     messages_rx: Receiver<Message>,
@@ -33,7 +36,12 @@ impl Dispatcher {
             .ok_or(anyhow!("no such connection: {}", message.recipient))?;
 
         let mut writer = BufWriter::new(stream);
-        let message = format!(":{} PRIVMSG {} :{}\r\n", message.sender, message.recipient, message.text);
+        let message = if let Some(header) = message.header {
+            format!(":{} {}\r\n", header, message.content)
+        } else {
+            format!("{}\r\n", message.content)
+        };
+
         writer.write_all(message.as_bytes())?;
         writer.flush()?;
 
