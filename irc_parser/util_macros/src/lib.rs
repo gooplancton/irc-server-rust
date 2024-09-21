@@ -59,7 +59,7 @@ pub fn run_command(input: TokenStream) -> TokenStream {
         impl RunCommand for #ident {
             fn run(
                 self,
-                state: &mut ConnectionState,
+                state: &mut crate::internals::ConnectionState,
                 writer: &mut BufWriter<TcpStream>,
                 messages_tx: &mut std::sync::mpsc::Sender<crate::internals::Message>
             ) -> anyhow::Result<()> {

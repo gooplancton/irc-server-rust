@@ -3,7 +3,7 @@ use std::{io::BufWriter, net::TcpStream, sync::mpsc::Sender};
 use anyhow::anyhow;
 use irc_parser::{types::CommaSeparatedList, FromIRCString};
 
-use crate::{connection::state::ConnectionState, internals::Message};
+use crate::internals::{ConnectionState, Message};
 
 use super::RunCommand;
 

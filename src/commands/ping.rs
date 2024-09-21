@@ -6,7 +6,7 @@ use std::{
 
 use irc_parser::FromIRCString;
 
-use crate::{connection::state::ConnectionState, internals::Message};
+use crate::internals::{ConnectionState, Message};
 
 use super::RunCommand;
 

@@ -1,35 +1,56 @@
-use std::{
-    io::{BufWriter, Write},
-    sync::mpsc::Receiver,
-};
+use std::io::{BufWriter, Write};
 
 use anyhow::anyhow;
 
-use super::{connections::Connections, Message};
+use super::{channel::Channels, connections::Connections, Message};
 
 pub struct Dispatcher {
-    messages_rx: Receiver<Message>,
     connections: Connections,
+    channels: Channels,
 }
 
 impl Dispatcher {
-    pub fn new(messages_rx: Receiver<Message>, connections: Connections) -> Self {
+    pub fn new(connections: Connections, channels: Channels) -> Self {
         Self {
-            messages_rx,
             connections,
+            channels,
         }
     }
 
-    pub fn start(self) {
-        while let Ok(message) = self.messages_rx.recv() {
-            let res = self.send_message(message);
-            if let Err(err) = res {
-                println!("error sending message: {}", err);
+    pub fn send_message(&self, message: Message) -> anyhow::Result<()> {
+        if message.recipient.starts_with('#') | message.recipient.starts_with('&') {
+            self.send_message_to_channel(message)
+        } else {
+            self.send_message_to_user(message)
+        }
+    }
+
+    fn send_message_to_channel(&self, message: Message) -> anyhow::Result<()> {
+        let channel_name = message.recipient.as_str();
+        let users = self.channels.get_channel_users(channel_name)?;
+
+        users.into_iter().for_each(|user| {
+            if message
+                .header
+                .as_ref()
+                .is_some_and(|sender| sender == &user)
+            {
+                return;
             }
-        }
+
+            let user_message = Message {
+                header: message.header.clone(),
+                recipient: user.clone(),
+                content: message.content.clone(),
+            };
+
+            let _ = self.send_message_to_user(user_message);
+        });
+
+        Ok(())
     }
 
-    fn send_message(&self, message: Message) -> anyhow::Result<()> {
+    fn send_message_to_user(&self, message: Message) -> anyhow::Result<()> {
         let stream = self
             .connections
             .get_connection(&message.recipient)

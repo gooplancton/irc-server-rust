@@ -2,7 +2,7 @@ use std::{io::BufWriter, net::TcpStream, sync::mpsc::Sender};
 
 use irc_parser::FromIRCString;
 
-use crate::{connection::state::ConnectionState, internals::Message};
+use crate::internals::{ConnectionState, Message};
 
 use super::RunCommand;
 

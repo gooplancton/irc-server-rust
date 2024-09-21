@@ -2,7 +2,7 @@ use std::{io::BufWriter, net::TcpStream, sync::mpsc::Sender};
 
 use irc_parser::FromIRCString;
 
-use crate::{connection::state::ConnectionState, internals::Message};
+use crate::internals::{ConnectionState, Message};
 
 use super::RunCommand;
 
@@ -17,11 +17,10 @@ impl RunCommand for ModeArgs {
         self,
         _state: &mut ConnectionState,
         _writer: &mut BufWriter<TcpStream>,
-        _messages_tx: &mut Sender<Message>
+        _messages_tx: &mut Sender<Message>,
     ) -> anyhow::Result<()> {
         // dbg!(&self);
 
         Ok(())
     }
 }
-

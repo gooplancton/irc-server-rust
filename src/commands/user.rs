@@ -10,9 +10,8 @@ use anyhow::anyhow;
 use irc_parser::FromIRCString;
 
 use crate::{
-    connection::state::{ConnectionState, RegistrationState},
     consts::RPL_WELCOME,
-    internals::Message,
+    internals::{connection_state::RegistrationState, ConnectionState, Message},
 };
 
 use super::RunCommand;
@@ -39,10 +38,7 @@ impl RunCommand for UserArgs {
             .as_deref()
             .ok_or(anyhow!("nickname must be known at this point"))?;
 
-        let message = format!(
-            "{} {} :Welcome {}\r\n",
-            RPL_WELCOME, nickname, nickname
-        );
+        let message = format!("{} {} :Welcome {}\r\n", RPL_WELCOME, nickname, nickname);
 
         writer.write_all(message.as_bytes())?;
 

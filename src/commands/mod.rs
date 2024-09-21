@@ -11,7 +11,7 @@ use privmsg::PrivMsgArgs;
 use quit::QuitArgs;
 use user::UserArgs;
 
-use crate::{connection::state::ConnectionState, internals::Message};
+use crate::internals::{ConnectionState, Message};
 
 mod capabilities;
 mod join;

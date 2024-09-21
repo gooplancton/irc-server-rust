@@ -1,14 +1,14 @@
 use std::{
     collections::HashMap,
     net::TcpStream,
-    sync::{Arc, Mutex},
+    sync::{Arc, RwLock},
 };
 
 use thiserror::Error;
 
 #[derive(Default, Clone)]
 pub struct Connections {
-    inner: Arc<Mutex<HashMap<String, TcpStream>>>,
+    inner: Arc<RwLock<HashMap<String, TcpStream>>>,
 }
 
 #[derive(Debug, Error)]
@@ -19,7 +19,7 @@ pub enum ConnectionRegistrationError {
 
 impl Connections {
     pub fn get_connection(&self, connection_id: &str) -> Option<TcpStream> {
-        let connections = self.inner.lock().ok()?;
+        let connections = self.inner.read().ok()?;
         let stream = connections.get(connection_id)?;
 
         Some(stream.try_clone().unwrap())
@@ -31,7 +31,7 @@ impl Connections {
     ) -> Result<(), ConnectionRegistrationError> {
         let mut connections = self
             .inner
-            .lock()
+            .write()
             .map_err(|_| ConnectionRegistrationError::PoisonError)?;
 
         connections.remove(connection_id);
@@ -46,7 +46,7 @@ impl Connections {
     ) -> Result<(), ConnectionRegistrationError> {
         let mut connections = self
             .inner
-            .lock()
+            .write()
             .map_err(|_| ConnectionRegistrationError::PoisonError)?;
 
         connections.insert(connection_id, stream);
@@ -61,7 +61,7 @@ impl Connections {
     ) -> Result<(), ConnectionRegistrationError> {
         let mut connections = self
             .inner
-            .lock()
+            .write()
             .map_err(|_| ConnectionRegistrationError::PoisonError)?;
 
         if let Some(stream) = connections.remove(old_connection_id) {

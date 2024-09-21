@@ -15,7 +15,12 @@ pub enum RegistrationState {
     Unregistered,
     ReadyToBeRegistered,
     AlreadyRegistered,
-    ReadyToBeUnregistered
+    ReadyToBeUnregistered,
+}
+
+pub enum ChannelMembershipChange {
+    Joined(String),
+    Left(String),
 }
 
 pub struct ConnectionState {
@@ -23,6 +28,8 @@ pub struct ConnectionState {
     pub nickname: Option<String>,
     pub username: Option<String>,
     pub modes: UserModes,
+    pub joined_channels: Vec<String>,
+    pub channel_membership_changes: Option<Vec<ChannelMembershipChange>>,
 }
 
 impl ConnectionState {
@@ -32,6 +39,8 @@ impl ConnectionState {
             nickname: None,
             username: None,
             modes: UserModes(0),
+            joined_channels: vec![],
+            channel_membership_changes: None
         }
     }
 }
