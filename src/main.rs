@@ -4,6 +4,7 @@ mod commands;
 mod consts;
 mod internals;
 
-fn main() {
-    IRCServer::new().listen(None);
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    IRCServer::new().listen(None).await
 }

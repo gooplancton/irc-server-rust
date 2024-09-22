@@ -1,17 +1,25 @@
+use std::str::FromStr;
+
 #[derive(Debug)]
-pub struct Message {
-    pub header: Option<String>,
-    pub recipient: String,
-    pub content: String,
+pub enum MessageRecipient {
+    UserId(u64),
+    Nickname(String),
+    Channel(String),
 }
 
-impl Message {
-    pub fn private_message(from: Option<String>, to: String, content: String) -> Self {
-        Self {
-            header: from,
-            recipient: to.clone(),
-            content: format!("PRIVMSG {} :{}", to, content)
+impl MessageRecipient {
+    pub fn from_string(s: String) -> Self {
+        if s.starts_with('#') || s.starts_with('&') {
+            Self::Channel(s)
+        } else {
+            Self::Nickname(s)
         }
     }
 }
 
+#[derive(Debug)]
+pub struct Message {
+    pub header: Option<String>,
+    pub recipient: MessageRecipient,
+    pub content: String,
+}

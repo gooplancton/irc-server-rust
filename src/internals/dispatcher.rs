@@ -1,70 +1,96 @@
-use std::io::{BufWriter, Write};
-
-use anyhow::anyhow;
-
-use super::{channel::Channels, connections::Connections, Message};
+use super::{
+    channel::Channels, connections::Connections, message::MessageRecipient, user::Users, Message,
+};
+use anyhow::{anyhow, bail};
+use tokio::io::AsyncWriteExt;
 
 pub struct Dispatcher {
     connections: Connections,
     channels: Channels,
+    users: Users,
 }
 
 impl Dispatcher {
-    pub fn new(connections: Connections, channels: Channels) -> Self {
+    pub fn new(connections: Connections, channels: Channels, users: Users) -> Self {
         Self {
             connections,
             channels,
+            users,
         }
     }
 
-    pub fn send_message(&self, message: Message) -> anyhow::Result<()> {
-        if message.recipient.starts_with('#') | message.recipient.starts_with('&') {
-            self.send_message_to_channel(message)
+    pub async fn send_message(&mut self, message: Message) -> anyhow::Result<()> {
+        match message.recipient {
+            MessageRecipient::Channel(_) => self.send_message_to_channel(message).await,
+            _ => self.send_message_to_user(message).await,
+        }
+    }
+
+    async fn send_message_to_channel(&mut self, message: Message) -> anyhow::Result<()> {
+        let channel_name = match message.recipient {
+            MessageRecipient::Channel(name) => name,
+            _ => unreachable!(),
+        };
+
+        let users = self.channels.get_channel_users(&channel_name).await;
+
+        if users.is_none() {
+            return Ok(());
+        }
+
+        let sender_id = if let Some(sender_nickname) = message.header.as_ref() {
+            self.users.get_user_id(sender_nickname).await
         } else {
-            self.send_message_to_user(message)
-        }
-    }
+            None
+        };
 
-    fn send_message_to_channel(&self, message: Message) -> anyhow::Result<()> {
-        let channel_name = message.recipient.as_str();
-        let users = self.channels.get_channel_users(channel_name)?;
-
-        users.into_iter().for_each(|user| {
-            if message
-                .header
-                .as_ref()
-                .is_some_and(|sender| sender == &user)
-            {
-                return;
+        for user_id in users.unwrap().drain() {
+            if sender_id.is_some_and(|sender_id| sender_id == user_id) {
+                continue;
             }
 
             let user_message = Message {
                 header: message.header.clone(),
-                recipient: user.clone(),
+                recipient: MessageRecipient::UserId(user_id),
                 content: message.content.clone(),
             };
 
-            let _ = self.send_message_to_user(user_message);
-        });
+            let _ = self.send_message_to_user(user_message).await;
+        }
 
         Ok(())
     }
 
-    fn send_message_to_user(&self, message: Message) -> anyhow::Result<()> {
-        let stream = self
-            .connections
-            .get_connection(&message.recipient)
-            .ok_or(anyhow!("no such connection: {}", message.recipient))?;
+    async fn send_message_to_user(&mut self, message: Message) -> anyhow::Result<()> {
+        let mut connections = self.connections.inner.write().await;
 
-        let mut writer = BufWriter::new(stream);
+        let recipient_user_id = match message.recipient {
+            MessageRecipient::Channel(_) => unreachable!(),
+            MessageRecipient::UserId(id) => id,
+            MessageRecipient::Nickname(recipient_user_nickname) => self
+                .users
+                .get_user_id(&recipient_user_nickname)
+                .await
+                .ok_or(anyhow!(
+                    "no users with nickname {}",
+                    recipient_user_nickname
+                ))?,
+        };
+
+        let stream = connections.get_mut(&recipient_user_id);
+        if stream.is_none() {
+            bail!("user has disconnected")
+        }
+
+        let mut stream = stream.unwrap().lock().await;
         let message = if let Some(header) = message.header {
             format!(":{} {}\r\n", header, message.content)
         } else {
             format!("{}\r\n", message.content)
         };
 
-        writer.write_all(message.as_bytes())?;
-        writer.flush()?;
+        stream.write_all(message.as_bytes()).await?;
+        stream.flush().await?;
 
         Ok(())
     }
