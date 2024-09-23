@@ -1,9 +1,6 @@
 use crate::commands::CommandOutput;
 
-use super::{
-    channel::Channels,
-    user::{User, Users},
-};
+use super::{channel::Channels, user::Users};
 
 pub struct ConnectionState {
     pub user_id: u64,

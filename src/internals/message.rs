@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 #[derive(Debug)]
 pub enum MessageRecipient {
     UserId(u64),

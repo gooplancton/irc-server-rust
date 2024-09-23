@@ -82,7 +82,8 @@ impl Dispatcher {
             bail!("user has disconnected")
         }
 
-        let mut stream = stream.unwrap().lock().await;
+        let stream = stream.unwrap();
+
         let message = if let Some(header) = message.header {
             format!(":{} {}\r\n", header, message.content)
         } else {

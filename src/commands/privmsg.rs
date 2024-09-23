@@ -23,9 +23,7 @@ impl RunCommand for PrivMsgArgs {
             .as_ref()
             .ok_or(anyhow!("nickname must be known at this point"))?;
 
-        let mut targets = self.targets.values;
-        if targets.len() == 1 {
-            let recipient_string = targets.pop().unwrap();
+        for recipient_string in self.targets.values.into_iter() {
             let recipient = MessageRecipient::from_string(recipient_string.clone());
             let message = Message {
                 header: Some(sender.clone()),
@@ -33,19 +31,10 @@ impl RunCommand for PrivMsgArgs {
                 content: format!("PRIVMSG {} :{}", recipient_string, self.text),
             };
 
-            outbox.send(message).await?;
-
-            return Ok(CommandOutput::default());
-        }
-
-        for recipient in targets.into_iter() {
-            let message = Message {
-                header: Some(sender.clone()),
-                recipient: MessageRecipient::from_string(recipient),
-                content: self.text.clone(),
-            };
-
-            let _ = outbox.send(message).await;
+            let send_res = outbox.send(message).await;
+            if let Err(err) = send_res {
+                eprintln!("error sending message: {}", err);
+            }
         }
 
         Ok(CommandOutput::default())

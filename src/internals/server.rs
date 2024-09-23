@@ -1,7 +1,6 @@
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::net::TcpListener;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
-use tokio::sync::Mutex;
 
 use irc_parser::FromIRCString;
 
@@ -69,14 +68,13 @@ impl IRCServer {
                 let user = User::new();
                 let mut connection_state = ConnectionState::new(user.id);
 
-                let write_half = Mutex::from(write_half);
                 connections.register_connection(user.id, write_half).await;
 
                 loop {
                     let mut command_line = String::new();
                     let read_res = reader.read_line(&mut command_line).await;
                     if let Err(err) = read_res {
-                        print!("error reading command: {}", err);
+                        eprint!("error reading command: {}", err);
                         break;
                     }
 
@@ -85,14 +83,14 @@ impl IRCServer {
                     let command = match Command::from_irc_string(&command_line) {
                         Ok(command) => command,
                         Err(err) => {
-                            println!("error parsing command: {}", err);
+                            eprintln!("error parsing command: {}", err);
                             continue;
                         }
                     };
 
                     let output = command.run(&connection_state, messages_tx.clone()).await;
                     if let Err(err) = output {
-                        println!("error executing command: {}", err);
+                        eprintln!("error executing command: {}", err);
                         continue;
                     }
 
@@ -104,6 +102,10 @@ impl IRCServer {
                         .await;
 
                     if disconnect_after_update {
+                        connections
+                            .unregister_connection(&connection_state.user_id)
+                            .await;
+
                         return;
                     }
                 }

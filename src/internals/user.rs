@@ -61,7 +61,7 @@ impl Users {
         Ok(())
     }
 
-    pub async fn remove_user(&mut self, nickname: &str) {
+    pub async fn _remove_user(&mut self, nickname: &str) {
         let mut inner = self.inner.write().await;
         inner.remove(nickname);
     }

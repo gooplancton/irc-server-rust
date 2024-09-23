@@ -33,7 +33,7 @@ pub struct Channels {
 }
 
 impl Channels {
-    pub async fn list(&self) -> Vec<String> {
+    pub async fn _list(&self) -> Vec<String> {
         self.inner.read().await.keys().cloned().collect()
     }
 
@@ -45,7 +45,7 @@ impl Channels {
             .map(|chan| chan.users.clone())
     }
 
-    pub async fn create_channel(&mut self, name: String, first_user_id: Option<UserId>) {
+    pub async fn _create_channel(&mut self, name: String, first_user_id: Option<UserId>) {
         let mut inner = self.inner.write().await;
 
         if inner.contains_key(name.as_str()) {
