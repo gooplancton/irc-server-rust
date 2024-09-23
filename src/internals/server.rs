@@ -49,7 +49,7 @@ impl IRCServer {
             );
 
             while let Some(message) = self.messages_rx.recv().await {
-                let _ = dispatcher.send_message(message).await;
+                let _ = dispatcher.send_message(&message).await;
             }
         });
 

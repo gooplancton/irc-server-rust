@@ -19,20 +19,20 @@ impl Dispatcher {
         }
     }
 
-    pub async fn send_message(&mut self, message: Message) -> anyhow::Result<()> {
+    pub async fn send_message(&mut self, message: &Message) -> anyhow::Result<()> {
         match message.recipient {
             MessageRecipient::Channel(_) => self.send_message_to_channel(message).await,
             _ => self.send_message_to_user(message).await,
         }
     }
 
-    async fn send_message_to_channel(&mut self, message: Message) -> anyhow::Result<()> {
-        let channel_name = match message.recipient {
+    async fn send_message_to_channel(&mut self, message: &Message) -> anyhow::Result<()> {
+        let channel_name = match &message.recipient {
             MessageRecipient::Channel(name) => name,
             _ => unreachable!(),
         };
 
-        let users = self.channels.get_channel_users(&channel_name);
+        let users = self.channels.get_channel_users(channel_name);
 
         if users.is_none() {
             return Ok(());
@@ -54,24 +54,27 @@ impl Dispatcher {
                 content: message.content.clone(),
             };
 
-            let send_res = self.send_message_to_user(user_message).await;
+            let send_res = self.send_message_to_user(&user_message).await;
             if let Err(err) = send_res {
-                print!("error sending message: {}", err);
+                eprint!(
+                    "error: {} - could not deliver message to user with id {}",
+                    err, user_id
+                );
             }
         }
 
         Ok(())
     }
 
-    async fn send_message_to_user(&mut self, message: Message) -> anyhow::Result<()> {
+    async fn send_message_to_user(&mut self, message: &Message) -> anyhow::Result<()> {
         let mut connections = self.connections.inner.lock().await;
 
-        let recipient_user_id = match message.recipient {
+        let recipient_user_id = match &message.recipient {
             MessageRecipient::Channel(_) => unreachable!(),
-            MessageRecipient::UserId(id) => id,
+            MessageRecipient::UserId(id) => *id,
             MessageRecipient::Nickname(recipient_user_nickname) => self
                 .users
-                .get_user_id(&recipient_user_nickname)
+                .get_user_id(recipient_user_nickname)
                 .ok_or(anyhow!(
                     "no users with nickname {}",
                     recipient_user_nickname
@@ -86,14 +89,14 @@ impl Dispatcher {
         let stream = stream.unwrap();
         let mut message_bytes: Vec<u8> = vec![];
 
-        if let Some(header) = message.header {
+        if let Some(header) = &message.header {
             message_bytes.push(b':');
-            message_bytes.append(&mut header.into());
+            message_bytes.extend_from_slice(header);
             message_bytes.push(b' ');
         }
 
-        message_bytes.append(&mut message.content.into());
-        message_bytes.append(&mut b"\r\n".into());
+        message_bytes.extend_from_slice(&message.content);
+        message_bytes.extend_from_slice(b"\r\n");
 
         stream.write_all(message_bytes.as_slice()).await?;
         stream.flush().await?;
