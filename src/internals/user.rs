@@ -1,12 +1,11 @@
 use std::{
     collections::HashMap,
     hash::{DefaultHasher, Hasher},
-    sync::Arc,
+    sync::{Arc, RwLock},
     time::{self, UNIX_EPOCH},
 };
 
 use anyhow::bail;
-use tokio::sync::RwLock;
 
 pub struct User {
     pub id: u64,
@@ -28,20 +27,23 @@ impl User {
 }
 
 type Nickname = String;
-type UsersInner = RwLock<HashMap<Nickname, User>>;
+type UsersInner = HashMap<Nickname, User>;
 
 #[derive(Default, Clone)]
 pub struct Users {
-    pub inner: Arc<UsersInner>,
+    pub inner: Arc<RwLock<UsersInner>>,
 }
 
 impl Users {
-    pub async fn rename_user(
+    pub fn rename_user(
         &mut self,
         new_nickname: String,
         previous_nickname: &str,
     ) -> anyhow::Result<()> {
-        let mut inner = self.inner.write().await;
+        let mut inner = self
+            .inner
+            .write()
+            .expect("dispatcher has panicked, aborting");
 
         if inner.contains_key(new_nickname.as_str()) {
             bail!("nickname {} alrady taken", new_nickname);
@@ -54,19 +56,30 @@ impl Users {
         Ok(())
     }
 
-    pub async fn add_user(&mut self, nickname: String) -> anyhow::Result<()> {
-        let mut inner = self.inner.write().await;
-        inner.insert(nickname.clone(), User::new());
+    pub fn add_user(&mut self, nickname: String) {
+        let mut inner = self
+            .inner
+            .write()
+            .expect("dispatcher has panicked, aborting");
 
-        Ok(())
+        inner.insert(nickname.clone(), User::new());
     }
 
-    pub async fn _remove_user(&mut self, nickname: &str) {
-        let mut inner = self.inner.write().await;
+    pub fn _remove_user(&mut self, nickname: &str) {
+        let mut inner = self
+            .inner
+            .write()
+            .expect("dispatcher has panicked, aborting");
+
         inner.remove(nickname);
     }
 
-    pub async fn get_user_id(&self, nickname: &str) -> Option<u64> {
-        self.inner.read().await.get(nickname).map(|user| user.id)
+    pub fn get_user_id(&self, nickname: &str) -> Option<u64> {
+        let inner = self
+            .inner
+            .read()
+            .expect("dispatcher has panicked, aborting");
+
+        inner.get(nickname).map(|user| user.id)
     }
 }

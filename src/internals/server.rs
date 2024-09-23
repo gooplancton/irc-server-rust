@@ -70,15 +70,15 @@ impl IRCServer {
 
                 connections.register_connection(user.id, write_half).await;
 
-                loop {
+                let user_id = loop {
                     let mut command_line = String::new();
                     let read_res = reader.read_line(&mut command_line).await;
                     if let Err(err) = read_res {
                         eprint!("error reading command: {}", err);
-                        break;
+                        break connection_state.user_id;
                     }
 
-                    print!("{}", &command_line);
+                    print!("received command: {}", &command_line);
 
                     let command = match Command::from_irc_string(&command_line) {
                         Ok(command) => command,
@@ -102,13 +102,11 @@ impl IRCServer {
                         .await;
 
                     if disconnect_after_update {
-                        connections
-                            .unregister_connection(&connection_state.user_id)
-                            .await;
-
-                        return;
+                        break connection_state.user_id;
                     }
-                }
+                };
+
+                connections.unregister_connection(&user_id).await;
             });
         }
     }

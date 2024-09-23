@@ -32,14 +32,14 @@ impl Dispatcher {
             _ => unreachable!(),
         };
 
-        let users = self.channels.get_channel_users(&channel_name).await;
+        let users = self.channels.get_channel_users(&channel_name);
 
         if users.is_none() {
             return Ok(());
         }
 
         let sender_id = if let Some(sender_nickname) = message.header.as_ref() {
-            self.users.get_user_id(sender_nickname).await
+            self.users.get_user_id(sender_nickname)
         } else {
             None
         };
@@ -62,7 +62,7 @@ impl Dispatcher {
     }
 
     async fn send_message_to_user(&mut self, message: Message) -> anyhow::Result<()> {
-        let mut connections = self.connections.inner.write().await;
+        let mut connections = self.connections.inner.lock().await;
 
         let recipient_user_id = match message.recipient {
             MessageRecipient::Channel(_) => unreachable!(),
@@ -70,7 +70,6 @@ impl Dispatcher {
             MessageRecipient::Nickname(recipient_user_nickname) => self
                 .users
                 .get_user_id(&recipient_user_nickname)
-                .await
                 .ok_or(anyhow!(
                     "no users with nickname {}",
                     recipient_user_nickname

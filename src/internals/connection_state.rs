@@ -25,11 +25,10 @@ impl ConnectionState {
     ) {
         if let Some(new_nickname) = command_output.new_nickname {
             let rename_res = if let Some(ref previous_nickname) = self.nickname {
-                users
-                    .rename_user(new_nickname.clone(), previous_nickname)
-                    .await
+                users.rename_user(new_nickname.clone(), previous_nickname)
             } else {
-                users.add_user(new_nickname.clone()).await
+                users.add_user(new_nickname.clone());
+                Ok(())
             };
 
             if rename_res.is_ok() {
@@ -39,9 +38,7 @@ impl ConnectionState {
 
         if let Some(joined_channels) = command_output.joined_channels {
             for joined_channel in joined_channels {
-                let join_res = channels
-                    .join_channel(joined_channel.clone(), self.user_id)
-                    .await;
+                let join_res = channels.join_channel(joined_channel.clone(), self.user_id);
 
                 if join_res.is_ok() {
                     self.joined_channels.push(joined_channel);
@@ -61,7 +58,7 @@ impl ConnectionState {
                 }
 
                 self.joined_channels.swap_remove(idx.unwrap());
-                channels.leave_channel(left_channel, &self.user_id).await;
+                channels.leave_channel(left_channel, &self.user_id);
             }
         }
     }
