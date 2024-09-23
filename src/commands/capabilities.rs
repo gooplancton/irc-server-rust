@@ -1,3 +1,4 @@
+use bytes::Bytes;
 use irc_parser::FromIRCString;
 use tokio::sync::mpsc::Sender;
 
@@ -10,6 +11,8 @@ pub struct CapabilitiesArgs {
     subcommand: String,
 }
 
+static LS_RESPONSE: Bytes = Bytes::from_static(b"CAP * LS :");
+
 impl RunCommand for CapabilitiesArgs {
     async fn run(
         self,
@@ -20,7 +23,7 @@ impl RunCommand for CapabilitiesArgs {
             "LS" => {
                 let message = Message {
                     header: None,
-                    content: "CAP * LS :\r\n".to_string(),
+                    content: LS_RESPONSE.clone(),
                     recipient: MessageRecipient::UserId(state.user_id),
                 };
 

@@ -3,6 +3,7 @@ use crate::{
     internals::{message::MessageRecipient, ConnectionState, Message},
 };
 use anyhow::bail;
+use bytes::Bytes;
 use irc_parser::FromIRCString;
 use tokio::sync::mpsc::Sender;
 
@@ -27,7 +28,11 @@ impl RunCommand for UserArgs {
         }
 
         let nickname = state.nickname.as_ref().unwrap();
-        let content = format!("{} {} :Welcome {}\r\n", RPL_WELCOME, nickname, nickname);
+        let content = Bytes::from(format!(
+            "{} {} :Welcome {}",
+            RPL_WELCOME, nickname, nickname
+        ));
+
         let message = Message {
             content,
             header: None,

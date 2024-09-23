@@ -1,4 +1,5 @@
 use anyhow::anyhow;
+use bytes::Bytes;
 use irc_parser::{types::CommaSeparatedList, FromIRCString};
 use tokio::sync::mpsc::Sender;
 
@@ -20,7 +21,8 @@ impl RunCommand for PrivMsgArgs {
     ) -> anyhow::Result<CommandOutput> {
         let sender = state
             .nickname
-            .as_ref()
+            .clone()
+            .map(Bytes::from)
             .ok_or(anyhow!("nickname must be known at this point"))?;
 
         for recipient_string in self.targets.values.into_iter() {
@@ -28,7 +30,7 @@ impl RunCommand for PrivMsgArgs {
             let message = Message {
                 header: Some(sender.clone()),
                 recipient,
-                content: format!("PRIVMSG {} :{}", recipient_string, self.text),
+                content: Bytes::from(format!("PRIVMSG {} :{}", recipient_string, self.text)),
             };
 
             let send_res = outbox.send(message).await;

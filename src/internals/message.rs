@@ -1,3 +1,5 @@
+use bytes::Bytes;
+
 #[derive(Debug)]
 pub enum MessageRecipient {
     UserId(u64),
@@ -17,7 +19,7 @@ impl MessageRecipient {
 
 #[derive(Debug)]
 pub struct Message {
-    pub header: Option<String>,
+    pub header: Option<Bytes>,
     pub recipient: MessageRecipient,
-    pub content: String,
+    pub content: Bytes,
 }

@@ -8,3 +8,4 @@ anyhow = "1.0.89"
 thiserror = "1.0.63"
 irc_parser = { path = "irc_parser" }
 tokio = { version ="1.40.0", features = ["full"] }
+bytes = "1.7.2"

@@ -1,3 +1,4 @@
+use bytes::Bytes;
 use irc_parser::FromIRCString;
 use tokio::sync::mpsc::Sender;
 
@@ -16,7 +17,7 @@ impl RunCommand for PingArgs {
         state: &ConnectionState,
         outbox: Sender<Message>,
     ) -> anyhow::Result<CommandOutput> {
-        let content = format!(":server PONG {}\r\n", self.token);
+        let content = Bytes::from(format!(":server PONG {}", self.token));
         let message = Message {
             header: None,
             content,

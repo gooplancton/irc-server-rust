@@ -38,11 +38,10 @@ impl Dispatcher {
             return Ok(());
         }
 
-        let sender_id = if let Some(sender_nickname) = message.header.as_ref() {
-            self.users.get_user_id(sender_nickname)
-        } else {
-            None
-        };
+        let sender_id = message.header.as_ref().and_then(|sender_nickname| {
+            self.users
+                .get_user_id(&String::from_utf8_lossy(sender_nickname))
+        });
 
         for user_id in users.unwrap().drain() {
             if sender_id.is_some_and(|sender_id| sender_id == user_id) {
@@ -55,7 +54,10 @@ impl Dispatcher {
                 content: message.content.clone(),
             };
 
-            let _ = self.send_message_to_user(user_message).await;
+            let send_res = self.send_message_to_user(user_message).await;
+            if let Err(err) = send_res {
+                print!("error sending message: {}", err);
+            }
         }
 
         Ok(())
@@ -82,14 +84,18 @@ impl Dispatcher {
         }
 
         let stream = stream.unwrap();
+        let mut message_bytes: Vec<u8> = vec![];
 
-        let message = if let Some(header) = message.header {
-            format!(":{} {}\r\n", header, message.content)
-        } else {
-            format!("{}\r\n", message.content)
-        };
+        if let Some(header) = message.header {
+            message_bytes.push(b':');
+            message_bytes.append(&mut header.into());
+            message_bytes.push(b' ');
+        }
 
-        stream.write_all(message.as_bytes()).await?;
+        message_bytes.append(&mut message.content.into());
+        message_bytes.append(&mut b"\r\n".into());
+
+        stream.write_all(message_bytes.as_slice()).await?;
         stream.flush().await?;
 
         Ok(())
