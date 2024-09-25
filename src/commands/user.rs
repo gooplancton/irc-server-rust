@@ -21,7 +21,7 @@ impl RunCommand for UserArgs {
     async fn run(
         self,
         state: &ConnectionState,
-        outbox: Sender<Message>,
+        outbox: &Sender<Message>,
     ) -> anyhow::Result<CommandOutput> {
         if state.nickname.is_none() {
             bail!("user has not yet provided a unique nickname");

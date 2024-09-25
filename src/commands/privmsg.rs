@@ -17,7 +17,7 @@ impl RunCommand for PrivMsgArgs {
     async fn run(
         self,
         state: &ConnectionState,
-        outbox: Sender<Message>,
+        outbox: &Sender<Message>,
     ) -> anyhow::Result<CommandOutput> {
         let sender = state
             .nickname

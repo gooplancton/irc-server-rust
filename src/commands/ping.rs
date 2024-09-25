@@ -15,7 +15,7 @@ impl RunCommand for PingArgs {
     async fn run(
         self,
         state: &ConnectionState,
-        outbox: Sender<Message>,
+        outbox: &Sender<Message>,
     ) -> anyhow::Result<CommandOutput> {
         let content = Bytes::from(format!(":server PONG {}", self.token));
         let message = Message {

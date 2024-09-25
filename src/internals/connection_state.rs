@@ -1,6 +1,8 @@
+use tokio::sync::mpsc::Sender;
+
 use crate::commands::CommandOutput;
 
-use super::{channel::Channels, user::Users};
+use super::{channel::Channels, user::Users, Message};
 
 pub struct ConnectionState {
     pub user_id: u64,
@@ -21,6 +23,7 @@ impl ConnectionState {
         &mut self,
         channels: &mut Channels,
         users: &mut Users,
+        outbox: &Sender<Message>,
         command_output: CommandOutput,
     ) {
         if let Some(new_nickname) = command_output.new_nickname {
@@ -33,6 +36,7 @@ impl ConnectionState {
 
             if rename_res.is_ok() {
                 self.nickname = Some(new_nickname);
+            } else {
             }
         }
 

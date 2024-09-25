@@ -17,7 +17,7 @@ impl RunCommand for JoinArgs {
     async fn run(
         self,
         state: &ConnectionState,
-        outbox: Sender<Message>,
+        outbox: &Sender<Message>,
     ) -> anyhow::Result<CommandOutput> {
         let join_message = Message {
             content: JOIN_RESPONSE.clone(),

@@ -51,7 +51,7 @@ pub fn run_command(input: TokenStream) -> TokenStream {
     let arms = enum_data.variants.into_iter().map(|variant| {
         let variant_ident = &variant.ident;
         quote! {
-            Self::#variant_ident(args) => args.run(state, outbox).await,
+            Self::#variant_ident(args) => args.run(state, &outbox).await,
         }
     });
 
@@ -60,7 +60,7 @@ pub fn run_command(input: TokenStream) -> TokenStream {
             async fn run(
                 self,
                 state: &crate::internals::ConnectionState,
-                outbox: tokio::sync::mpsc::Sender<crate::internals::Message>
+                outbox: &tokio::sync::mpsc::Sender<crate::internals::Message>
             ) -> anyhow::Result<crate::commands::CommandOutput> {
                 match self {
                     #(#arms)*

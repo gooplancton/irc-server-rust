@@ -59,7 +59,7 @@ pub trait RunCommand {
     async fn run(
         self,
         state: &ConnectionState,
-        outbox: Sender<Message>,
+        outbox: &Sender<Message>,
     ) -> anyhow::Result<CommandOutput>;
 }
 
