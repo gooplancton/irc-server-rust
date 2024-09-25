@@ -15,7 +15,7 @@ pub fn derive_from_irc_string(input: TokenStream) -> TokenStream {
     let ident = &input.ident;
     let is_commands_enum = input.attrs.iter().any(|attr| match &attr.meta {
         syn::Meta::Path(path) => path.is_ident("command_list"),
-        _ => false
+        _ => false,
     });
 
     match input.data {
@@ -51,18 +51,17 @@ pub fn run_command(input: TokenStream) -> TokenStream {
     let arms = enum_data.variants.into_iter().map(|variant| {
         let variant_ident = &variant.ident;
         quote! {
-            Self::#variant_ident(args) => args.run(state, writer, messages_tx),
+            Self::#variant_ident(args) => args.run(state, outbox).await,
         }
     });
 
     let expanded = quote! {
         impl RunCommand for #ident {
-            fn run(
+            async fn run(
                 self,
-                state: &mut crate::internals::ConnectionState,
-                writer: &mut BufWriter<TcpStream>,
-                messages_tx: &mut std::sync::mpsc::Sender<crate::internals::Message>
-            ) -> anyhow::Result<()> {
+                state: &crate::internals::ConnectionState,
+                outbox: tokio::sync::mpsc::Sender<crate::internals::Message>
+            ) -> anyhow::Result<crate::commands::CommandOutput> {
                 match self {
                     #(#arms)*
                 }

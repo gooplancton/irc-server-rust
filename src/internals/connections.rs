@@ -1,73 +1,26 @@
-use std::{
-    collections::HashMap,
-    net::TcpStream,
-    sync::{Arc, RwLock},
-};
+use std::{collections::HashMap, sync::Arc};
 
-use thiserror::Error;
+use tokio::{net::tcp::OwnedWriteHalf, sync::Mutex};
+
+type UserId = u64;
+
+type ConnectionsInner = HashMap<UserId, OwnedWriteHalf>;
 
 #[derive(Default, Clone)]
 pub struct Connections {
-    inner: Arc<RwLock<HashMap<String, TcpStream>>>,
-}
-
-#[derive(Debug, Error)]
-pub enum ConnectionRegistrationError {
-    #[error("could not acquire lock on connections")]
-    PoisonError,
+    pub inner: Arc<Mutex<ConnectionsInner>>,
 }
 
 impl Connections {
-    pub fn get_connection(&self, connection_id: &str) -> Option<TcpStream> {
-        let connections = self.inner.read().ok()?;
-        let stream = connections.get(connection_id)?;
-
-        Some(stream.try_clone().unwrap())
-    }
-
-    pub fn unregister_connection(
-        &self,
-        connection_id: &str,
-    ) -> Result<(), ConnectionRegistrationError> {
-        let mut connections = self
-            .inner
-            .write()
-            .map_err(|_| ConnectionRegistrationError::PoisonError)?;
+    pub async fn unregister_connection(&self, connection_id: &UserId) {
+        let mut connections = self.inner.lock().await;
 
         connections.remove(connection_id);
-
-        Ok(())
     }
 
-    pub fn register_connection(
-        &mut self,
-        connection_id: String,
-        stream: TcpStream,
-    ) -> Result<(), ConnectionRegistrationError> {
-        let mut connections = self
-            .inner
-            .write()
-            .map_err(|_| ConnectionRegistrationError::PoisonError)?;
+    pub async fn register_connection(&mut self, user_id: UserId, stream: OwnedWriteHalf) {
+        let mut connections = self.inner.lock().await;
 
-        connections.insert(connection_id, stream);
-
-        Ok(())
-    }
-
-    pub fn reassign_connection(
-        &mut self,
-        old_connection_id: &str,
-        new_connection_id: String,
-    ) -> Result<(), ConnectionRegistrationError> {
-        let mut connections = self
-            .inner
-            .write()
-            .map_err(|_| ConnectionRegistrationError::PoisonError)?;
-
-        if let Some(stream) = connections.remove(old_connection_id) {
-            connections.insert(new_connection_id, stream);
-        }
-
-        Ok(())
+        connections.insert(user_id, stream);
     }
 }

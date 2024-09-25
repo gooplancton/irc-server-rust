@@ -1,10 +1,11 @@
 mod server;
 pub use server::IRCServer;
 
-mod message;
+pub mod message;
 pub use message::Message;
 
 mod channel;
+mod user;
 
 mod dispatcher;
 mod connections;

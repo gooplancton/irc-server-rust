@@ -1,145 +1,112 @@
-use std::{
-    io::{BufRead, BufReader, BufWriter, Write},
-    net::TcpListener,
-    sync::mpsc::{self, Receiver, Sender},
-    thread,
-};
+use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::net::TcpListener;
+use tokio::sync::mpsc::{channel, Receiver, Sender};
 
 use irc_parser::FromIRCString;
 
 use crate::commands::{Command, RunCommand};
 
+use super::dispatcher::Dispatcher;
+use super::user::{User, Users};
 use super::{
-    channel::Channels,
-    connection_state::{ChannelMembershipChange, ConnectionState, RegistrationState},
-    connections::Connections,
-    dispatcher::Dispatcher,
+    channel::Channels, connection_state::ConnectionState, connections::Connections,
     message::Message,
 };
 
 pub struct IRCServer {
     channels: Channels,
     connections: Connections,
+    users: Users,
     messages_tx: Sender<Message>,
     messages_rx: Receiver<Message>,
 }
 
 impl IRCServer {
     pub fn new() -> Self {
-        let (tx, rx) = mpsc::channel::<Message>();
+        let (tx, rx) = channel::<Message>(1024);
 
         Self {
             channels: Channels::default(),
             connections: Connections::default(),
+            users: Users::default(),
             messages_tx: tx,
             messages_rx: rx,
         }
     }
 
-    pub fn listen(self, port: Option<usize>) {
+    pub async fn listen(mut self, port: Option<usize>) -> anyhow::Result<()> {
         let addr = format!("127.0.0.1:{}", port.unwrap_or(6667));
-        let listener = TcpListener::bind(addr).unwrap();
+        let listener = TcpListener::bind(addr).await.unwrap();
 
         let dispatcher_channels = self.channels.clone();
         let dispatcher_connections = self.connections.clone();
-        thread::spawn(move || {
-            let dispatcher = Dispatcher::new(
+        let dispatcher_users = self.users.clone();
+        tokio::spawn(async move {
+            let mut dispatcher = Dispatcher::new(
                 dispatcher_connections,
                 dispatcher_channels,
+                dispatcher_users,
             );
 
-            for message in self.messages_rx {
-                let _ = dispatcher.send_message(message);
+            while let Some(message) = self.messages_rx.recv().await {
+                let _ = dispatcher.send_message(&message).await;
             }
         });
 
-        for stream in listener.incoming() {
-            if let Err(err) = stream {
-                println!("error: {}", err);
-                break;
-            }
+        loop {
+            let (stream, _) = listener.accept().await?;
 
-            let stream = stream.unwrap();
-            let mut writer = BufWriter::new(stream.try_clone().unwrap());
-            let mut reader = BufReader::new(stream.try_clone().unwrap());
-            let mut messages_tx = self.messages_tx.clone();
-            let mut handler_connections = self.connections.clone();
-            let mut handler_channels = self.channels.clone();
+            let messages_tx = self.messages_tx.clone();
+            let mut connections = self.connections.clone();
+            let mut channels = self.channels.clone();
+            let mut users = self.users.clone();
 
-            thread::spawn(move || {
-                let mut connection_state = ConnectionState::new();
+            tokio::spawn(async move {
+                let (read_half, write_half) = stream.into_split();
+                let mut reader = BufReader::new(read_half);
 
-                loop {
+                let user = User::new();
+                let mut connection_state = ConnectionState::new(user.id);
+
+                connections.register_connection(user.id, write_half).await;
+
+                let user_id = loop {
                     let mut command_line = String::new();
-                    if reader.read_line(&mut command_line).is_err() || command_line.is_empty() {
-                        break;
+                    let read_res = reader.read_line(&mut command_line).await;
+                    if let Err(err) = read_res {
+                        eprint!("error reading command: {}", err);
+                        break connection_state.user_id;
                     }
 
-                    dbg!(&command_line);
-                    let res = Command::from_irc_string(&command_line).and_then(|command| {
-                        command.run(&mut connection_state, &mut writer, &mut messages_tx)
-                    });
+                    print!("received command: {}", &command_line);
 
-                    if let Err(err) = res {
-                        println!("error: {}", err);
-                    }
-
-                    let _ = writer.flush();
-
-                    match connection_state.registration_state {
-                        RegistrationState::ReadyToBeRegistered => {
-                            let _ = handler_connections.register_connection(
-                                connection_state.nickname.clone().unwrap(),
-                                stream.try_clone().unwrap(),
-                            );
-                            connection_state.registration_state =
-                                RegistrationState::AlreadyRegistered
+                    let command = match Command::from_irc_string(&command_line) {
+                        Ok(command) => command,
+                        Err(err) => {
+                            eprintln!("error parsing command: {}", err);
+                            continue;
                         }
-                        RegistrationState::ReadyToBeUnregistered => {
-                            let _ = handler_connections
-                                .unregister_connection(connection_state.nickname.as_ref().unwrap());
+                    };
 
-                            return;
-                        }
-                        _ => {}
-                    }
-
-                    if connection_state.nickname.is_none() {
+                    let output = command.run(&connection_state, messages_tx.clone()).await;
+                    if let Err(err) = output {
+                        eprintln!("error executing command: {}", err);
                         continue;
                     }
 
-                    match connection_state.channel_membership_changes.take() {
-                        None => {}
-                        Some(changes) => {
-                            let nickname = connection_state.nickname.as_ref().unwrap();
-                            changes.into_iter().for_each(|change| match change {
-                                ChannelMembershipChange::Joined(name) => {
-                                    let res = handler_channels
-                                        .join_channel(name.clone(), nickname.clone());
-                                    if res.is_ok() {
-                                        connection_state.joined_channels.push(name);
-                                    }
-                                }
-                                ChannelMembershipChange::Left(name) => {
-                                    let res =
-                                        handler_channels.leave_channel(&name, nickname.as_str());
-                                    if res.is_ok() {
-                                        let channel_idx = connection_state
-                                            .joined_channels
-                                            .iter()
-                                            .position(|channel_name| channel_name == &name);
+                    let output = output.unwrap();
+                    let disconnect_after_update = output.disconnect;
 
-                                        if let Some(channel_idx) = channel_idx {
-                                            connection_state
-                                                .joined_channels
-                                                .swap_remove(channel_idx);
-                                        }
-                                    }
-                                }
-                            })
-                        }
+                    connection_state
+                        .update(&mut channels, &mut users, output)
+                        .await;
+
+                    if disconnect_after_update {
+                        break connection_state.user_id;
                     }
-                }
+                };
+
+                connections.unregister_connection(&user_id).await;
             });
         }
     }

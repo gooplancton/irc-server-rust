@@ -1,49 +1,46 @@
-#![allow(dead_code)]
-
-use std::{
-    io::{BufWriter, Write},
-    net::TcpStream,
-    sync::mpsc::Sender,
-};
-
-use anyhow::anyhow;
-use irc_parser::FromIRCString;
-
 use crate::{
     consts::RPL_WELCOME,
-    internals::{connection_state::RegistrationState, ConnectionState, Message},
+    internals::{message::MessageRecipient, ConnectionState, Message},
 };
+use anyhow::bail;
+use bytes::Bytes;
+use irc_parser::FromIRCString;
+use tokio::sync::mpsc::Sender;
 
-use super::RunCommand;
+use super::{CommandOutput, RunCommand};
 
 #[derive(Debug, FromIRCString)]
 pub struct UserArgs {
-    username: String,
+    _username: String,
     _unused1: String,
     _unused2: String,
-    realname: String,
+    _realname: String,
 }
 
 impl RunCommand for UserArgs {
-    fn run(
+    async fn run(
         self,
-        state: &mut ConnectionState,
-        writer: &mut BufWriter<TcpStream>,
-        _messages_tx: &mut Sender<Message>,
-    ) -> anyhow::Result<()> {
-        state.username = Some(self.username);
+        state: &ConnectionState,
+        outbox: Sender<Message>,
+    ) -> anyhow::Result<CommandOutput> {
+        if state.nickname.is_none() {
+            bail!("user has not yet provided a unique nickname");
+        }
 
-        let nickname = state
-            .nickname
-            .as_deref()
-            .ok_or(anyhow!("nickname must be known at this point"))?;
+        let nickname = state.nickname.as_ref().unwrap();
+        let content = Bytes::from(format!(
+            "{} {} :Welcome {}",
+            RPL_WELCOME, nickname, nickname
+        ));
 
-        let message = format!("{} {} :Welcome {}\r\n", RPL_WELCOME, nickname, nickname);
+        let message = Message {
+            content,
+            header: None,
+            recipient: MessageRecipient::UserId(state.user_id),
+        };
 
-        writer.write_all(message.as_bytes())?;
+        outbox.send(message).await?;
 
-        state.registration_state = RegistrationState::ReadyToBeRegistered;
-
-        Ok(())
+        Ok(CommandOutput::default())
     }
 }

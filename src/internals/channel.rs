@@ -1,107 +1,78 @@
 use std::{
-    collections::HashMap,
-    sync::{Arc, RwLock, RwLockReadGuard},
+    collections::{HashMap, HashSet},
+    sync::{Arc, RwLock},
 };
 
-use anyhow::{anyhow, bail};
+type UserId = u64;
 
 pub struct Channel {
-    name: String,
-    users: Vec<String>,
+    users: HashSet<UserId>,
 }
 
 impl Channel {
-    pub fn new(name: String, first_user: Option<String>) -> Self {
-        let users = if let Some(first_user) = first_user {
-            vec![first_user]
+    pub fn new(first_user_id: Option<UserId>) -> Self {
+        let users = if let Some(first_user_id) = first_user_id {
+            HashSet::from([first_user_id])
         } else {
-            vec![]
+            HashSet::new()
         };
 
-        Self { name, users }
+        Self { users }
     }
 }
 
-type ChannelsInner = RwLock<HashMap<String, Channel>>;
+type ChannelName = String;
+
+type ChannelsInner = HashMap<ChannelName, Channel>;
 
 #[derive(Default, Clone)]
 pub struct Channels {
-    pub inner: Arc<ChannelsInner>,
+    pub inner: Arc<RwLock<ChannelsInner>>,
 }
 
 impl Channels {
-    pub fn list(&self) -> anyhow::Result<Vec<String>> {
+    pub fn _list(&self) -> Vec<String> {
         self.inner
             .read()
-            .map(|inner| inner.keys().cloned().collect::<Vec<String>>())
-            .map_err(|_| anyhow!("failed to acquire lock"))
+            .expect("dispatcher has panicked, aborting")
+            .keys()
+            .cloned()
+            .collect()
     }
 
-    pub fn get_channel_users(&self, name: &str) -> anyhow::Result<Vec<String>> {
+    pub fn get_channel_users(&self, name: &str) -> Option<HashSet<UserId>> {
         self.inner
             .read()
-            .map_err(|_| anyhow!("could not acquire lock"))?
+            .expect("dispatcher has panicked, aborting")
             .get(name)
             .map(|chan| chan.users.clone())
-            .ok_or(anyhow!("channel {} does not exist", &name))
     }
 
-    pub fn create_channel(
-        &mut self,
-        name: String,
-        first_user: Option<String>,
-    ) -> anyhow::Result<()> {
+    pub fn join_channel(&mut self, name: String, user_id: UserId) -> anyhow::Result<()> {
         let mut inner = self
             .inner
             .write()
-            .map_err(|_| anyhow!("failed to acquire lock"))?;
-
-        if inner.contains_key(name.as_str()) {
-            bail!("channel {} already exists", name);
-        }
-
-        let channel = Channel::new(name.clone(), first_user);
-        inner.insert(name, channel);
-
-        Ok(())
-    }
-
-    pub fn join_channel(&mut self, name: String, user: String) -> anyhow::Result<()> {
-        let mut inner = self
-            .inner
-            .write()
-            .map_err(|_| anyhow!("failed to acquire lock"))?;
+            .expect("dispatcher has panicked, aborting");
 
         if let Some(existing_channel) = inner.get_mut(name.as_str()) {
-            existing_channel.users.push(user);
+            existing_channel.users.extend([user_id]);
             return Ok(());
         }
 
-        let channel = Channel::new(name.clone(), Some(user));
+        let channel = Channel::new(Some(user_id));
         inner.insert(name, channel);
 
         Ok(())
     }
 
-    pub fn leave_channel(&mut self, name: &str, user: &str) -> anyhow::Result<()> {
+    pub fn leave_channel(&mut self, name: &str, user_id: &UserId) {
         let mut inner = self
             .inner
             .write()
-            .map_err(|_| anyhow!("failed to acquire lock"))?;
+            .expect("dispatcher has panicked, aborting");
 
         if let Some(existing_channel) = inner.get_mut(name) {
-            let user_idx = existing_channel
-                .users
-                .iter()
-                .position(|joined_user| joined_user == user);
-
-            if let Some(user_idx) = user_idx {
-                existing_channel.users.swap_remove(user_idx);
-            }
-
-            return Ok(());
+            existing_channel.users.remove(user_id);
         }
-
-        Ok(())
     }
 }

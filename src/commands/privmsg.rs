@@ -1,11 +1,11 @@
-use std::{io::BufWriter, net::TcpStream, sync::mpsc::Sender};
-
 use anyhow::anyhow;
+use bytes::Bytes;
 use irc_parser::{types::CommaSeparatedList, FromIRCString};
+use tokio::sync::mpsc::Sender;
 
-use crate::internals::{ConnectionState, Message};
+use crate::internals::{message::MessageRecipient, ConnectionState, Message};
 
-use super::RunCommand;
+use super::{CommandOutput, RunCommand};
 
 #[derive(FromIRCString)]
 pub struct PrivMsgArgs {
@@ -14,38 +14,31 @@ pub struct PrivMsgArgs {
 }
 
 impl RunCommand for PrivMsgArgs {
-    fn run(
+    async fn run(
         self,
-        state: &mut ConnectionState,
-        _writer: &mut BufWriter<TcpStream>,
-        messages_tx: &mut Sender<Message>,
-    ) -> anyhow::Result<()> {
+        state: &ConnectionState,
+        outbox: Sender<Message>,
+    ) -> anyhow::Result<CommandOutput> {
         let sender = state
             .nickname
-            .as_ref()
+            .clone()
+            .map(Bytes::from)
             .ok_or(anyhow!("nickname must be known at this point"))?;
 
-        let mut targets = self.targets.values;
-        if targets.len() == 1 {
-            let recipient = targets.pop().unwrap();
-            let message = Message::private_message(Some(sender.clone()), recipient, self.text);
-            messages_tx.send(message)?;
+        for recipient_string in self.targets.values.into_iter() {
+            let recipient = MessageRecipient::from_string(recipient_string.clone());
+            let message = Message {
+                header: Some(sender.clone()),
+                recipient,
+                content: Bytes::from(format!("PRIVMSG {} :{}", recipient_string, self.text)),
+            };
 
-            return Ok(());
+            let send_res = outbox.send(message).await;
+            if let Err(err) = send_res {
+                eprintln!("error sending message: {}", err);
+            }
         }
 
-        let send_failures = targets
-            .into_iter()
-            .map(|recipient| {
-                let message =
-                    Message::private_message(Some(sender.clone()), recipient, self.text.clone());
-                messages_tx.send(message)
-            })
-            .filter(|res| res.is_err());
-
-        send_failures
-            .for_each(|failure| println!("failed to send message due to {}", failure.unwrap_err()));
-
-        Ok(())
+        Ok(CommandOutput::default())
     }
 }

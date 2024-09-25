@@ -1,10 +1,9 @@
-use std::{io::BufWriter, net::TcpStream, sync::mpsc::Sender};
-
 use irc_parser::FromIRCString;
+use tokio::sync::mpsc::Sender;
 
 use crate::internals::{ConnectionState, Message};
 
-use super::RunCommand;
+use super::{CommandOutput, RunCommand};
 
 #[derive(Debug, FromIRCString)]
 pub struct NickArgs {
@@ -12,14 +11,11 @@ pub struct NickArgs {
 }
 
 impl RunCommand for NickArgs {
-    fn run(
+    async fn run(
         self,
-        state: &mut ConnectionState,
-        _writer: &mut BufWriter<TcpStream>,
-        _messages_tx: &mut Sender<Message>,
-    ) -> anyhow::Result<()> {
-        state.nickname = Some(self.nickname);
-
-        Ok(())
+        _state: &ConnectionState,
+        _outbox: Sender<Message>,
+    ) -> anyhow::Result<CommandOutput> {
+        Ok(CommandOutput::rename(self.nickname))
     }
 }

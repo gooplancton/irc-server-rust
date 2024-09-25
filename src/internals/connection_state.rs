@@ -1,46 +1,65 @@
-use bitfield::bitfield;
+use crate::commands::CommandOutput;
 
-bitfield! {
-    pub struct UserModes(u8);
-    pub away, set_away: 1;
-    pub invisible, set_invisible: 1;
-    pub wallops, set_wallops: 1;
-    pub restricted, set_restricted: 1;
-    pub operator, set_operator: 1;
-    pub local_operator, set_local_operator: 1;
-    pub notice_recipient, set_notice_recipient: 1;
-}
-
-pub enum RegistrationState {
-    Unregistered,
-    ReadyToBeRegistered,
-    AlreadyRegistered,
-    ReadyToBeUnregistered,
-}
-
-pub enum ChannelMembershipChange {
-    Joined(String),
-    Left(String),
-}
+use super::{channel::Channels, user::Users};
 
 pub struct ConnectionState {
-    pub registration_state: RegistrationState,
+    pub user_id: u64,
     pub nickname: Option<String>,
-    pub username: Option<String>,
-    pub modes: UserModes,
     pub joined_channels: Vec<String>,
-    pub channel_membership_changes: Option<Vec<ChannelMembershipChange>>,
 }
 
 impl ConnectionState {
-    pub fn new() -> Self {
+    pub fn new(user_id: u64) -> Self {
         Self {
-            registration_state: RegistrationState::Unregistered,
+            user_id,
             nickname: None,
-            username: None,
-            modes: UserModes(0),
             joined_channels: vec![],
-            channel_membership_changes: None
+        }
+    }
+
+    pub async fn update(
+        &mut self,
+        channels: &mut Channels,
+        users: &mut Users,
+        command_output: CommandOutput,
+    ) {
+        if let Some(new_nickname) = command_output.new_nickname {
+            let rename_res = if let Some(ref previous_nickname) = self.nickname {
+                users.rename_user(new_nickname.clone(), previous_nickname)
+            } else {
+                users.add_user(new_nickname.clone());
+                Ok(())
+            };
+
+            if rename_res.is_ok() {
+                self.nickname = Some(new_nickname);
+            }
+        }
+
+        if let Some(joined_channels) = command_output.joined_channels {
+            for joined_channel in joined_channels {
+                let join_res = channels.join_channel(joined_channel.clone(), self.user_id);
+
+                if join_res.is_ok() {
+                    self.joined_channels.push(joined_channel);
+                }
+            }
+        }
+
+        if let Some(ref left_channels) = command_output.left_channels {
+            for left_channel in left_channels {
+                let idx = self
+                    .joined_channels
+                    .iter()
+                    .position(|chan| chan == left_channel);
+
+                if idx.is_none() {
+                    continue;
+                }
+
+                self.joined_channels.swap_remove(idx.unwrap());
+                channels.leave_channel(left_channel, &self.user_id);
+            }
         }
     }
 }

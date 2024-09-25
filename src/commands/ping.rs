@@ -1,14 +1,10 @@
-use std::{
-    io::{BufWriter, Write},
-    net::TcpStream,
-    sync::mpsc::Sender,
-};
-
+use bytes::Bytes;
 use irc_parser::FromIRCString;
+use tokio::sync::mpsc::Sender;
 
-use crate::internals::{ConnectionState, Message};
+use crate::internals::{message::MessageRecipient, ConnectionState, Message};
 
-use super::RunCommand;
+use super::{CommandOutput, RunCommand};
 
 #[derive(FromIRCString)]
 pub struct PingArgs {
@@ -16,15 +12,20 @@ pub struct PingArgs {
 }
 
 impl RunCommand for PingArgs {
-    fn run(
+    async fn run(
         self,
-        _state: &mut ConnectionState,
-        writer: &mut BufWriter<TcpStream>,
-        _messages_tx: &mut Sender<Message>,
-    ) -> anyhow::Result<()> {
-        let message = format!("server PONG {}\r\n", self.token);
-        writer.write_all(message.as_bytes())?;
+        state: &ConnectionState,
+        outbox: Sender<Message>,
+    ) -> anyhow::Result<CommandOutput> {
+        let content = Bytes::from(format!(":server PONG {}", self.token));
+        let message = Message {
+            header: None,
+            content,
+            recipient: MessageRecipient::UserId(state.user_id),
+        };
 
-        Ok(())
+        outbox.send(message).await?;
+
+        Ok(CommandOutput::default())
     }
 }
