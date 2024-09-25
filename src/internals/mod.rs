@@ -8,7 +8,7 @@ mod channel;
 mod user;
 
 mod dispatcher;
-mod connections;
+mod connection;
 
 pub mod connection_state;
 pub use connection_state::ConnectionState;

@@ -14,7 +14,7 @@ impl RunCommand for NickArgs {
     async fn run(
         self,
         _state: &ConnectionState,
-        _outbox: Sender<Message>,
+        _outbox: &Sender<Message>,
     ) -> anyhow::Result<CommandOutput> {
         Ok(CommandOutput::rename(self.nickname))
     }

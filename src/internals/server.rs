@@ -9,7 +9,7 @@ use crate::commands::{Command, RunCommand};
 use super::dispatcher::Dispatcher;
 use super::user::{User, Users};
 use super::{
-    channel::Channels, connection_state::ConnectionState, connections::Connections,
+    channel::Channels, connection_state::ConnectionState, connection::Connections,
     message::Message,
 };
 
@@ -88,7 +88,7 @@ impl IRCServer {
                         }
                     };
 
-                    let output = command.run(&connection_state, messages_tx.clone()).await;
+                    let output = command.run(&connection_state, &messages_tx).await;
                     if let Err(err) = output {
                         eprintln!("error executing command: {}", err);
                         continue;
@@ -98,7 +98,7 @@ impl IRCServer {
                     let disconnect_after_update = output.disconnect;
 
                     connection_state
-                        .update(&mut channels, &mut users, output)
+                        .update(&mut channels, &mut users, &messages_tx, output)
                         .await;
 
                     if disconnect_after_update {

@@ -1,9 +1,5 @@
-use crate::{
-    consts::RPL_WELCOME,
-    internals::{message::MessageRecipient, ConnectionState, Message},
-};
+use crate::internals::{ConnectionState, Message};
 use anyhow::bail;
-use bytes::Bytes;
 use irc_parser::FromIRCString;
 use tokio::sync::mpsc::Sender;
 
@@ -21,25 +17,16 @@ impl RunCommand for UserArgs {
     async fn run(
         self,
         state: &ConnectionState,
-        outbox: Sender<Message>,
+        outbox: &Sender<Message>,
     ) -> anyhow::Result<CommandOutput> {
         if state.nickname.is_none() {
             bail!("user has not yet provided a unique nickname");
         }
 
         let nickname = state.nickname.as_ref().unwrap();
-        let content = Bytes::from(format!(
-            "{} {} :Welcome {}",
-            RPL_WELCOME, nickname, nickname
-        ));
-
-        let message = Message {
-            content,
-            header: None,
-            recipient: MessageRecipient::UserId(state.user_id),
-        };
-
-        outbox.send(message).await?;
+        outbox
+            .send(Message::welcome(state.user_id, nickname))
+            .await?;
 
         Ok(CommandOutput::default())
     }

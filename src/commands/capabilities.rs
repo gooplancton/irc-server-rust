@@ -17,7 +17,7 @@ impl RunCommand for CapabilitiesArgs {
     async fn run(
         self,
         state: &ConnectionState,
-        outbox: Sender<Message>,
+        outbox: &Sender<Message>,
     ) -> anyhow::Result<CommandOutput> {
         match self.subcommand.as_str() {
             "LS" => {

@@ -13,7 +13,7 @@ impl RunCommand for QuitArgs {
     async fn run(
         self,
         _state: &ConnectionState,
-        _outbox: Sender<Message>,
+        _outbox: &Sender<Message>,
     ) -> anyhow::Result<CommandOutput> {
         // TODO: send disconnection message
 

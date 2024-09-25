@@ -1,5 +1,5 @@
 use super::{
-    channel::Channels, connections::Connections, message::MessageRecipient, user::Users, Message,
+    channel::Channels, connection::Connections, message::MessageRecipient, user::Users, Message,
 };
 use anyhow::{anyhow, bail};
 use tokio::io::AsyncWriteExt;
