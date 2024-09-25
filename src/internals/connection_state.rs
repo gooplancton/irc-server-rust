@@ -2,7 +2,7 @@ use tokio::sync::mpsc::Sender;
 
 use crate::commands::CommandOutput;
 
-use super::{channel::Channels, message::MessageRecipient, user::Users, Message};
+use super::{channel::Channels, message::MessageRecipient, user::{NicknameUnavailableError, Users}, Message};
 
 pub struct ConnectionState {
     pub user_id: u64,
@@ -39,15 +39,15 @@ impl ConnectionState {
                     let old_nickname = std::mem::take(&mut self.nickname);
                     let _ = outbox
                         .send(Message::nickname_changed(
+                            MessageRecipient::UserId(self.user_id),
                             old_nickname,
                             &new_nickname,
-                            MessageRecipient::UserId(self.user_id)
                         ))
                         .await; // TODO: perhaps should notify other people as well
 
                     self.nickname = Some(new_nickname);
                 }
-                Err(_) => {
+                Err(NicknameUnavailableError) => {
                     let _ = outbox
                         .send(Message::nickname_unavailable(
                             self.user_id,

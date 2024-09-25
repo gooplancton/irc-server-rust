@@ -1,5 +1,5 @@
 use crate::internals::{ConnectionState, Message};
-use anyhow::bail;
+use bytes::Bytes;
 use irc_parser::FromIRCString;
 use tokio::sync::mpsc::Sender;
 
@@ -19,8 +19,11 @@ impl RunCommand for UserArgs {
         state: &ConnectionState,
         outbox: &Sender<Message>,
     ) -> anyhow::Result<CommandOutput> {
-        if state.nickname.is_none() {
-            bail!("user has not yet provided a unique nickname");
+        let sender = state.nickname.clone().map(Bytes::from);
+        if sender.is_none() {
+            let message = Message::not_registered(state.user_id, None);
+            let _ = outbox.send(message).await;
+            return Ok(CommandOutput::default());
         }
 
         let nickname = state.nickname.as_ref().unwrap();

@@ -1,9 +1,8 @@
-use anyhow::anyhow;
 use bytes::Bytes;
 use irc_parser::{types::CommaSeparatedList, FromIRCString};
 use tokio::sync::mpsc::Sender;
 
-use crate::internals::{message::MessageRecipient, ConnectionState, Message};
+use crate::internals::{ConnectionState, Message};
 
 use super::{CommandOutput, RunCommand};
 
@@ -19,24 +18,18 @@ impl RunCommand for PrivMsgArgs {
         state: &ConnectionState,
         outbox: &Sender<Message>,
     ) -> anyhow::Result<CommandOutput> {
-        let sender = state
-            .nickname
-            .clone()
-            .map(Bytes::from)
-            .ok_or(anyhow!("nickname must be known at this point"))?;
+        let sender = state.nickname.clone().map(Bytes::from);
 
+        if sender.is_none() {
+            let message = Message::not_registered(state.user_id, None);
+            let _ = outbox.send(message).await;
+            return Ok(CommandOutput::default());
+        }
+
+        let sender = sender.unwrap();
         for recipient_string in self.targets.values.into_iter() {
-            let recipient = MessageRecipient::from_string(recipient_string.clone());
-            let message = Message {
-                header: Some(sender.clone()),
-                recipient,
-                content: Bytes::from(format!("PRIVMSG {} :{}", recipient_string, self.text)),
-            };
-
-            let send_res = outbox.send(message).await;
-            if let Err(err) = send_res {
-                eprintln!("error sending message: {}", err);
-            }
+            let message = Message::privmsg(recipient_string, sender.clone(), &self.text);
+            let _ = outbox.send(message).await;
         }
 
         Ok(CommandOutput::default())
