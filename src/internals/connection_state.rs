@@ -2,7 +2,7 @@ use tokio::sync::mpsc::Sender;
 
 use crate::commands::CommandOutput;
 
-use super::{channel::Channels, user::Users, Message};
+use super::{channel::Channels, message::MessageRecipient, user::Users, Message};
 
 pub struct ConnectionState {
     pub user_id: u64,
@@ -34,9 +34,28 @@ impl ConnectionState {
                 Ok(())
             };
 
-            if rename_res.is_ok() {
-                self.nickname = Some(new_nickname);
-            } else {
+            match rename_res {
+                Ok(_) => {
+                    let old_nickname = std::mem::take(&mut self.nickname);
+                    let _ = outbox
+                        .send(Message::nickname_changed(
+                            old_nickname,
+                            &new_nickname,
+                            MessageRecipient::UserId(self.user_id)
+                        ))
+                        .await; // TODO: perhaps should notify other people as well
+
+                    self.nickname = Some(new_nickname);
+                }
+                Err(_) => {
+                    let _ = outbox
+                        .send(Message::nickname_unavailable(
+                            self.user_id,
+                            self.nickname.as_ref().unwrap(),
+                            &new_nickname,
+                        ))
+                        .await;
+                }
             }
         }
 

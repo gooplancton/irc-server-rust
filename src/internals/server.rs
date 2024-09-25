@@ -9,7 +9,7 @@ use crate::commands::{Command, RunCommand};
 use super::dispatcher::Dispatcher;
 use super::user::{User, Users};
 use super::{
-    channel::Channels, connection_state::ConnectionState, connections::Connections,
+    channel::Channels, connection_state::ConnectionState, connection::Connections,
     message::Message,
 };
 

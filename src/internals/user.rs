@@ -5,7 +5,7 @@ use std::{
     time::{self, UNIX_EPOCH},
 };
 
-use anyhow::bail;
+use thiserror::Error;
 
 pub struct User {
     pub id: u64,
@@ -34,19 +34,23 @@ pub struct Users {
     pub inner: Arc<RwLock<UsersInner>>,
 }
 
+#[derive(Error, Debug)]
+#[error("the chosen nickname is not available")]
+pub struct NicknameUnavailableError;
+
 impl Users {
     pub fn rename_user(
         &mut self,
         new_nickname: String,
         previous_nickname: &str,
-    ) -> anyhow::Result<()> {
+    ) -> Result<(), NicknameUnavailableError> {
         let mut inner = self
             .inner
             .write()
             .expect("dispatcher has panicked, aborting");
 
         if inner.contains_key(new_nickname.as_str()) {
-            bail!("nickname {} alrady taken", new_nickname);
+            return Err(NicknameUnavailableError);
         }
 
         if let Some(user) = inner.remove(previous_nickname) {
